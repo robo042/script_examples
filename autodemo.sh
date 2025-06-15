@@ -85,12 +85,13 @@ if [[ $BASH_SOURCE == $0 ]]; then
       esac
     done
     targets+=("${specials[@]}")
-    targets=($(printf "%s\n" "${targets[@]}" | sort))
+    targets=($(printf "%s\n" "${targets[@]}" | sort -u))
 
     # where this script lives vs where it was called from
     script_dir="$(cd -- $(dirname -- "${BASH_SOURCE[0]}") &>/dev/null && pwd)"
+    script_path="${script_dir}/$(basename $0)"
     call_dir="$(pwd)"
-    log "Script lives at: ${script_dir}/$(basename $0)"
+    log "Script lives at: $script_path"
     log "Called from:     $call_dir"
 
     # take some action based on some flag

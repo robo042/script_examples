@@ -2,7 +2,8 @@
 
 
 from argparse import ArgumentParser
-from os import path, getcwd
+from os.path import abspath, dirname, isdir, isfile, islink
+from pathlib import Path
 from sys import argv, stderr
 
 
@@ -21,18 +22,18 @@ def error(message):
 
 
 def error_exit(message):
-    ''' prints an error message and exits with a non-zero return code '''
+    ''' prints an error message and exits with a non-zero (bad) return code '''
     error(message)
     exit(1)
 
 
 def analyze_target(target, is_special=False):
     ''' simple example function '''
-    if path.isfile(target):
+    if isfile(target):
         write(f'\t{target} is a file.', bold=is_special)
-    elif path.isdir(target):
+    elif isdir(target):
         write(f'\t{target} is a directory.', bold=is_special)
-    elif path.islink(target):
+    elif islink(target):
         write(f'\t{target} is a symbolic link.', bold=is_special)
     else:
         error(f'\t{target} is not a valid file or directory.')
@@ -44,19 +45,18 @@ if __name__ == '__main__':
     # define our args
     parser = ArgumentParser(description='Simple automation sample script')
     parser.add_argument(
-        '-f', '--flag', action='store_true', help='Activate the demo flag.')
+        '-f', '--flag', action='store_true', help='activate the demo flag')
     parser.add_argument(
-        '-s', '--special', action='append', help='Highlight an argument.')
-    parser.add_argument('targets', nargs='*', help='Positional arguments.')
+        '-s', '--special', action='append', help='highlight an argument')
+    parser.add_argument('targets', nargs='*', help='positional arguments')
 
     # parse our args
     args, unknown = parser.parse_known_args()
     special = args.special if args.special else []
-    targets = sorted(args.targets + unknown + special)
+    targets = sorted(set(args.targets + unknown + special))
 
     # where this script lives vs where it was called from
-    script_path = path.abspath(argv[0])
-    script_dir, call_dir = path.dirname(script_path), getcwd()
+    call_dir, script_path = Path.cwd(), Path(__file__).resolve()
     write(f'Script lives at: {script_path}')
     write(f'Called from:     {call_dir}')
 
