@@ -1,8 +1,15 @@
 # Script Examples
 
-This repository is a small collection of example scripts showcasing my preferred scripting style and best practices for command-line automation.
+This repository is a small collection of example scripts showcasing my
+preferred scripting style and best practices for command-line automation.
 
-The current focus is on argument parsing, script hygiene, and robust behavior under real-world usage patterns. These scripts are intentionally minimalist — designed to be clear, extendable, and suitable as templates for future automation work.
+The current focus is on argument parsing, script hygiene, and robust behavior 
+under real-world usage patterns. These scripts are intentionally minimalist —
+designed to be clear, extendable, and suitable as templates for future
+automation work.
+
+I use this style in both personal automation and production-grade tooling, and
+it’s held up across teams, projects, and weird edge cases.
 
 ## Contents
 
@@ -30,13 +37,13 @@ This project isn’t just about scripting — it’s about scripting **well**:
 - Output should be consistent and human-readable
 - Scripts should work the same way every time, no surprises
 
-I use this style in both personal automation and production-grade tooling, and it’s held up across teams, projects, and weird edge cases.
-
 ## License
 
 Free code. No strings attached.
 
-Use it, fork it, copy-paste it into your thesis or your startup. You don’t need to ask for permission, and I won’t pretend to care. MIT license, for those who like legal symbols.
+Use it, fork it, copy-paste it into your thesis or your startup. You don’t
+need to ask for permission, and I won’t pretend to care. MIT license, for
+those who like legal symbols.
 
 ## Future Plans
 
@@ -46,4 +53,3 @@ I may add more demonstration scripts in the future — possibly covering:
 - Scripting with remote systems
 - Workflow orchestration
 
-If you're learning Bash or Python CLI development, feel free to steal whatever's useful here.
