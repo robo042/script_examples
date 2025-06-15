@@ -70,13 +70,18 @@ if [[ $BASH_SOURCE == $0 ]]; then
     specials=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        -h|--help) show_help && exit 0 ;;
-        -f|--flag) demo_flag=true && shift ;;
-        -s|--special) opt="$1" && shift
+        -h|--help)
+            show_help && exit 0 ;;
+        -f|--flag)
+            demo_flag=true && shift ;;
+        -s|--special)
+            opt="$1" && shift
             [[ -z $1 || $1 == -* ]] && error_exit "$opt requires an argument"
             specials+=("$1") && shift ;;
-        -*) error_exit "Invalid option: -$1" ;;
-         *) targets+=("$1") && shift ;;
+        -*)
+            error_exit "Invalid option: -$1" ;;
+         *) 
+            targets+=("$1") && shift ;;
       esac
     done
     targets+=("${specials[@]}")
