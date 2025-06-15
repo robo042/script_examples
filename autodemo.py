@@ -10,7 +10,7 @@ from sys import argv, stderr
 def write(text, bold=False):
     ''' writes to stdout '''
     if bold: 
-        text = '\033[1m ' + text + ' \033[0m'
+        text = '\033[1m' + text + '\033[0m'
     print('[*] ' + text)
     return
 

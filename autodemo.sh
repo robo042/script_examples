@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 
+# -eu aborts on command failure or undefined variables
+# -o pipefail ensures we're not silently failing in pipelines
+set -euo pipefail
+
 log(){
     # writes to stdout
-    echo -e "[*] $@"
+    echo -e "[*] $@" && return 0
 }
 
 log_bold(){ 
     # writes to stdout in bold
-    log "\033[1m${@}\033[0m"
+    log "\033[1m${@}\033[0m" && return 0
 }
 
 error(){
     # writes to stderr
-    echo -e "[!] $@" >&2
+    echo -e "[!] $@" >&2 && return 0
 } 
 
 error_exit(){
@@ -26,14 +30,11 @@ analyze_target(){
     local target="$1"
     is_special "$target" && log_exec=log_bold || log_exec=log
     if [[ -f $1 ]]; then
-        $log_exec "\t$target is a file."
-        return 0
+        $log_exec "\t$target is a file." && return 0
     elif [[ -d $target ]]; then
-        $log_exec "\t$target is a directory."
-        return 0
+        $log_exec "\t$target is a directory." && return 0
     elif [[ -L $target ]]; then
-        $log_exec "\t$target is a symbolic link."
-        return 0
+        $log_exec "\t$target is a symbolic link." && return 0
     fi
     error "\t$target is not a valid file or directory."
     return 1
@@ -47,27 +48,29 @@ is_special(){
 
 show_help(){
     # help function
-    cat <<- EOF | sed -e 's/^    //';
+    cat <<- ____EOF | sed -e 's/^    //';
     usage: $(basename $0) [-h] [-f] [-s SPECIAL] [targets ...]
     
     Simple automation sample script
     
     positional arguments:
-      targets               Positional arguments.
+      targets               positional arguments
     
     options:
       -h, --help            show this help message and exit
-      -f, --flag            Activate the demo flag.
+      -f, --flag            activate the demo flag
       -s SPECIAL, --special SPECIAL
-                            Highlight an argument.
-EOF
+                            highlight an argument
+____EOF
+    return 0
 }
 
 if [[ $BASH_SOURCE == $0 ]]; then
 
-    # define and parse our args
-    targets=()
-    specials=()
+    # define our args
+    targets=() specials=() demo_flag=
+
+    # parse our args
     while [[ $# -gt 0 ]]; do
       case "$1" in
         -h|--help)
@@ -89,8 +92,7 @@ if [[ $BASH_SOURCE == $0 ]]; then
 
     # where this script lives vs where it was called from
     script_dir="$(cd -- $(dirname -- "${BASH_SOURCE[0]}") &>/dev/null && pwd)"
-    script_path="${script_dir}/$(basename $0)"
-    call_dir="$(pwd)"
+    script_path="${script_dir}/$(basename $0)" call_dir="$(pwd)"
     log "Script lives at: $script_path"
     log "Called from:     $call_dir"
 
