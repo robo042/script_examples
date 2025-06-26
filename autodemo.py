@@ -2,7 +2,6 @@
 
 
 from argparse import ArgumentParser
-from os.path import abspath, dirname, isdir, isfile, islink
 from pathlib import Path
 from sys import argv, stderr
 
