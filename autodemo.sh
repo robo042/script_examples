@@ -37,7 +37,7 @@ analyze_target(){
         $log_exec "\t$target is a symbolic link." && return 0
     fi
     error "\t$target is not a valid file or directory."
-    return 1
+    return
 }
 
 is_special(){
