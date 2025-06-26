@@ -27,7 +27,7 @@ error_exit(){
 
 analyze_target(){
     # simple example function
-    local target="$1"
+    local log_exec target="$1"
     is_special "$target" && log_exec=log_bold || log_exec=log
     if [[ -f $1 ]]; then
         $log_exec "\t$target is a file." && return 0
