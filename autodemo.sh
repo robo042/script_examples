@@ -88,7 +88,7 @@ if [[ $BASH_SOURCE == $0 ]]; then
       esac
     done
     targets+=("${specials[@]}")
-    targets=($(printf "%s\n" "${targets[@]}" | sort -u))
+    targets=($(printf "%s\n" "${targets[@]}" | LC_ALL=C sort -u))
 
     # where this script lives vs where it was called from
     script_dir="$(cd -- $(dirname -- "${BASH_SOURCE[0]}") &>/dev/null && pwd)"

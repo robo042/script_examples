@@ -17,7 +17,7 @@ def write(text, bold=False):
 
 def error(message):
     ''' writes to stderr '''
-    print('[!] ' + message, file=stderr)
+    print('[!] ' + message, file = stderr)
     return
 
 
@@ -27,14 +27,14 @@ def error_exit(message):
     exit(1)
 
 
-def analyze_target(target, is_special=False):
+def analyze_target(target, is_special = False):
     ''' simple example function '''
-    if isfile(target):
-        write(f'\t{target} is a file.', bold=is_special)
-    elif isdir(target):
-        write(f'\t{target} is a directory.', bold=is_special)
-    elif islink(target):
-        write(f'\t{target} is a symbolic link.', bold=is_special)
+    if Path(target).is_file():
+        write(f'\t{target} is a file.', bold = is_special)
+    elif Path(target).is_dir():
+        write(f'\t{target} is a directory.', bold = is_special)
+    elif Path(target).is_symlink():
+        write(f'\t{target} is a symbolic link.', bold = is_special)
     else:
         error(f'\t{target} is not a valid file or directory.')
     return
@@ -43,12 +43,12 @@ def analyze_target(target, is_special=False):
 if __name__ == '__main__':
 
     # define our args
-    parser = ArgumentParser(description='Simple automation sample script')
+    parser = ArgumentParser(description = 'Simple automation sample script')
     parser.add_argument(
-        '-f', '--flag', action='store_true', help='activate the demo flag')
+        '-f', '--flag', action = 'store_true', help = 'activate the demo flag')
     parser.add_argument(
-        '-s', '--special', action='append', help='highlight an argument')
-    parser.add_argument('targets', nargs='*', help='positional arguments')
+        '-s', '--special', action = 'append', help = 'highlight an argument')
+    parser.add_argument('targets', nargs = '*', help = 'positional arguments')
 
     # parse our args
     args, unknown = parser.parse_known_args()
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # take some action based on some flag
     if args.flag:
-        write('-f / --flag is active.', bold=True)
+        write('-f / --flag is active.', bold = True)
 
     # do some stuff
     if targets:
