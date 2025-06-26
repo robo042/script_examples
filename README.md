@@ -29,14 +29,6 @@ A Bash implementation of the same logic, demonstrating:
 - ANSI formatting
 - Matching behavior to the Python version
 
-## Philosophy
-
-This project isn’t just about scripting — it’s about scripting **well**:
-- Arguments should be flexible and order-independent
-- Error messages should be clear and immediate
-- Output should be consistent and human-readable
-- Scripts should work the same way every time, no surprises
-
 ## License
 
 Free code. No strings attached.
@@ -52,4 +44,3 @@ I may add more demonstration scripts in the future — possibly covering:
 - Safe file modifications
 - Scripting with remote systems
 - Workflow orchestration
-
