@@ -48,6 +48,7 @@ ____EOF
 }
 
 outfile_from_target(){
+    # names the outfile based on infile
     local target="$1"
     if [[ $target == *.in ]]; then
         printf '%s\n' "${target%.in}.out"
@@ -125,6 +126,7 @@ if [[ ${BASH_SOURCE[0]} == $0 ]]; then
         outfile_name="$(outfile_from_target "$target_name")"
         outfile="${target_dir}/${outfile_name}"
 
+        # make sure we're not clobbering existing files
         if [[ -e $outfile && -z ${force:-} ]]; then
             error "Output file already exists: $outfile"
             error "Skipping '${target}' (use -f/--force to overwrite)"
@@ -136,6 +138,7 @@ if [[ ${BASH_SOURCE[0]} == $0 ]]; then
         log "Working directory: $target_dir"
         log "Writing: $outfile"
 
+        # ensures the executable is run from within the same dir as the infile
         if ! (
             cd -- "$target_dir" && 
             "$qe_exe" -in "$target_name" > "$outfile_name")
