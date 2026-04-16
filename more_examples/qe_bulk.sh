@@ -103,11 +103,6 @@ if [[ ${BASH_SOURCE[0]} == $0 ]]; then
 
     [[ ${#targets[@]} -gt 0 ]] || error_exit 'No input files provided.'
 
-    # where this script lives vs where it was called from
-    script_dir="$(cd -- $(dirname -- "${BASH_SOURCE[0]}") &>/dev/null && pwd)"
-    script_path="${script_dir}/$(basename "$0")"
-    call_dir="$(pwd)"
-
     # verify executable exists
     command -v "$qe_exe" >/dev/null 2>&1 ||{
         error_exit "Could not find QE executable in PATH: $qe_exe"

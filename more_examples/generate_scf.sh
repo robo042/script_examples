@@ -19,12 +19,12 @@ error_exit(){
 show_help(){
     # help function
     cat <<- ____EOF | sed -e 's/^    //';
-    usage: $(basename "$0") [-h] [-x qe_executable] [targets ...]
+    usage: $(basename "$0") [-h] [targets ...]
 
     blah blah I'm a help method
 
     positional arguments:
-      targets               input files to run sequentially
+      targets               input arguments
 
     options:
       -h, --help            show this help message and exit
@@ -44,6 +44,7 @@ if [[ ${BASH_SOURCE[0]} == $0 ]]; then
     set -euo pipefail
 
     # define our args
+    had_error=0
     targets=()
 
     # parse our args
@@ -61,11 +62,6 @@ if [[ ${BASH_SOURCE[0]} == $0 ]]; then
               targets+=("$1") && shift ;;
         esac
     done
-
-    # where this script lives vs where it was called from
-    script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null &&pwd)"
-    script_path="${script_dir}/$(basename "$0")"
-    call_dir="$(pwd)"
 
     # do the thing
     for target in "${targets[@]}"; do
