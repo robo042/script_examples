@@ -49,14 +49,14 @@ ____EOF
 
 outfile_from_target(){
     local target="$1"
-    if [[ "$target" == *.in ]]; then
+    if [[ $target == *.in ]]; then
         printf '%s\n' "${target%.in}.out"
     else
         printf '%s\n' "${target}.out"
     fi
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+if [[ ${BASH_SOURCE[0]} == $0 ]]; then
 
     # ensures this is done already
     [[ ${SETVARS_COMPLETED:-} == 1 ]] || source /opt/intel/oneapi/setvars.sh 
