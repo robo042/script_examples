@@ -60,7 +60,13 @@ outfile_from_target(){
 if [[ ${BASH_SOURCE[0]} == $0 ]]; then
 
     # ensures this is done already
-    [[ ${SETVARS_COMPLETED:-} == 1 ]] || source /opt/intel/oneapi/setvars.sh 
+    if [[ ${SETVARS_COMPLETED:-} != 1 ]]; then
+        # avoid passing $@ to setvars.sh
+        saved_argv=("$@")
+        set --
+        source /opt/intel/oneapi/setvars.sh
+        set -- "${saved_argv[@]}"
+    fi
 
     # -e  aborts on command failure
     # -u  aborts on undefined variables
