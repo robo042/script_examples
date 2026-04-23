@@ -101,69 +101,6 @@ render_template(){
       }' "$template_file" > "$outfile"
 }
 
-#render_template(){
-#    local template_file="$1" outfile="$2" sep=$'\x1f'
-#    local keys vals keys_blob vals_blob
-#    keys=("${headers[@]}" pseudo_dir outdir)
-#    vals=("${row_values[@]}" "'$pseudo_dir'" "'$outdir'")
-#    keys_blob="$(printf "%s${sep}" "${keys[@]}")"
-#    vals_blob="$(printf "%s${sep}" "${vals[@]}")"
-#    keys_blob="${keys_blob%$sep}"
-#    vals_blob="${vals_blob%$sep}"
-#    awk -v sep="$sep" -v keys_blob="$keys_blob" -v vals_blob="$vals_blob" '
-#      function ere_escape(s){
-#          gsub(/[][(){}.^$*+?|\\]/, "\\\\&", s)
-#          return s
-#      }
-#      function split_code_comment(line,    i, c, sq, dq){
-#          code_part = ""
-#          comment_part = ""
-#          sq = dq = 0
-#          for(i = 1; i <= length(line); i++){
-#              c = substr(line, i, 1)
-#              if(c == "'"'"'" && !dq){ sq = !sq}
-#              else if(c == "\"" && !sq){ dq = !dq }
-#              else if(c == "!" && !sq && !dq){
-#                  code_part = substr(line, 1, i - 1)
-#                  comment_part = substr(line, i)
-#                  return
-#              }
-#          }
-#          code_part = line
-#          comment_part = ""
-#      }
-#      function replace_param(code, key, val, low, pat, full_start,
-#                             full_len, lead_len, before, lead, rhs, after){
-#          low = tolower(code)
-#          pat = "(^|[^[:alnum:]_])" ere_escape(key) "[[:space:]]*=[[:space:]]*"
-#          if(!match(low, pat)){ return code }
-#          full_start = RSTART
-#          full_len   = RLENGTH
-#          lead_len   = 0
-#          if(substr(low, full_start, 1) != substr(key, 1, 1)){lead_len = 1}
-#          before = substr(code, 1, full_start - 1)
-#          lead   = (lead_len ? substr(code, full_start, 1) : "")
-#          rhs    = substr(code, full_start + full_len)
-#          if(match(rhs, /^[[:space:]]*'\''[^'\'']*'\''/)){
-#                 after = substr(rhs, RLENGTH + 1)
-#          }else if(match(rhs, /^[[:space:]]*"[^"]*"/)){
-#                 after = substr(rhs, RLENGTH + 1)
-#          }else if(match(rhs, /^[[:space:]]*[^,[:space:]]+/)){
-#                 after = substr(rhs, RLENGTH + 1)
-#          }else{ after = rhs}
-#          return before lead key " = " val after
-#      }BEGIN{
-#          n = split(keys_blob, keys, sep)
-#          split(vals_blob, vals, sep)
-#          for(i = 1; i <= n; i++){keys[i] = tolower(keys[i])}
-#      }{
-#          split_code_comment($0)
-#          code = code_part
-#          for(i = 1; i <= n; i++){code = replace_param(code, keys[i], vals[i])}
-#          print code comment_part
-#      }' "$template_file" > "$outfile"
-#}
-
 resolve_dir_path(){
     local raw_path="$1" base_dir="$2" abs_path=
     if [[ $raw_path == /* ]]
