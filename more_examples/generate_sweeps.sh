@@ -2,7 +2,7 @@
 
 error(){
     # writes to stderr
-    echo -e "[!] $*" >&2 && return 0
+    echo -e "[!] $*" >&2 && return
 }
 
 error_exit(){
@@ -27,12 +27,12 @@ is_valid_csv(){
                NR == 1 { n = NF; if (n < 1) ok = 0 }
                NF != n { ok = 0 } 
                    END { exit ok ? 0 : 1}' "$file"
-    return $?
+    return
 }
 
 log(){
     # writes to stdout
-    echo -e "[*] $*" && return 0
+    echo -e "[*] $*" && return
 }
 
 render_template(){
@@ -99,6 +99,7 @@ render_template(){
           }
           print code comment_part
       }' "$template_file" > "$outfile"
+      return
 }
 
 resolve_dir_path(){
@@ -109,6 +110,7 @@ resolve_dir_path(){
     fi
     [[ -d $abs_path ]] || error_exit "directory does not exist: $abs_path"
     (cd -- "$abs_path" &>/dev/null && pwd)
+    return
 }
 
 show_help(){
@@ -154,11 +156,12 @@ show_help(){
       $(basename "$0") Example1/nscf_sweeps.csv Example1/nscf.in 
 
 ____EOF
-    return 0
+    return
 }
 
 template_param_count(){
     template_param_scan count "$1" "$2"
+    return
 }
 
 template_param_scan(){
@@ -199,14 +202,15 @@ template_param_scan(){
         else if(mode == "get")   { if(count == 1){print value; exit 0 } exit 1}
         exit 2
       }' "$file"
+    return
 }
 
 trim(){
     local s="$1"
     s="${s//$'\r'/}"
     s="${s#"${s%%[![:space:]]*}"}"
-    s="${s%"${s##*[![:space:]]}"}"
-    printf '%s\n' "$s"
+    printf '%s\n' "${s%"${s##*[![:space:]]}"}"
+    return
 }
 
 usage(){
@@ -215,7 +219,7 @@ usage(){
     usage: $(basename "$0") [-h] [-f] file_a file_b
 
 ____EOF
-    return 0
+    return
 }
 
 if [[ ${BASH_SOURCE[0]} == $0 ]]
