@@ -115,7 +115,6 @@ show_help(){
     # help function
     usage
     cat <<- ____EOF | sed -e 's/^    //';
-
     Generate a sweep directory of Quantum ESPRESSO input files from:
       - one csv file describing parameter values
       - one QE template input file
@@ -151,8 +150,8 @@ show_help(){
 
     examples:
       $(basename "$0") sweeps.csv Example1/scf.in
-      $(basename "$0") Example2/proj.in proj_sweeps.csv
-      $(basename "$0") Example1/nscf.in Example1/ns_sweeps.csv
+      $(basename "$0") Example2/scf.in scf_sweeps.csv
+      $(basename "$0") Example1/nscf_sweeps.csv Example1/nscf.in 
 
 ____EOF
     return 0
@@ -214,6 +213,7 @@ usage(){
     # abbreviated help function
     cat <<- ____EOF | sed -e 's/^    //';
     usage: $(basename "$0") [-h] [-f] file_a file_b
+
 ____EOF
     return 0
 }
@@ -237,7 +237,7 @@ then
     do case "$1" in
          -f|--force) force=1 && shift ;;
           -h|--help) show_help && exit 0 ;;
-                 -*) error_exit "invalid option: $1" ;;
+                 -*) usage; error_exit "invalid option: $1" ;;
                   *) args+=("$1") && shift ;;
        esac
     done
