@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-log(){
-    # writes to stdout
-    echo -e "[*] $*" && return 0
-}
-
 error(){
     # writes to stderr
     echo -e "[!] $*" >&2 && return 0
@@ -35,6 +30,10 @@ is_valid_csv(){
     return $?
 }
 
+log(){
+    # writes to stdout
+    echo -e "[*] $*" && return 0
+}
 
 template_param_count(){
     template_param_scan count "$1" "$2"
