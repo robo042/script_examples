@@ -226,8 +226,6 @@ then
     # -o pipefail ensures we're not silently failing in pipelines
     set -euo pipefail
 
-    had_error=0
-
     # define our args
     args=()
     csv_file=
@@ -341,7 +339,6 @@ then
        render_template "$template_file" "$outfile"
        log "wrote $(realpath --relative-to=. "$outfile")"
     done < <(tail -n +2 "$csv_file")
-
-    # nonzero exit if anything went wrong
-    exit $had_error
+    
+    exit 0
 fi
