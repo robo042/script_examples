@@ -20,27 +20,8 @@ escape_ere(){
     printf '%s\n' "$1" | sed 's/[][(){}.^$*+?|\\/]/\\\\&/g'
 }
 
-count_template_param_matches(){
-    local file="$1" param="$2" pat
-    pat="$(escape_ere "${param,,}")"
-    awk -v pat="$pat" '
-    function strip_comment(line, out, i, c, sq, dq){
-        out = ""
-        sq = dq = 0
-        for(i = 1; i <= length(line); i++){
-            c = substr(line, i, 1)
-            if(c == "'"'"'" && !dq){ sq = !sq }
-            else if(c == "\"" && !sq){ dq = !dq }
-            else if(c == "!" && !sq && !dq){ break }
-            out = out c
-        } return out
-    }{
-        line = tolower(strip_comment($0))
-        while(match(line, "(^|[^[:alnum:]_])" pat "[[:space:]]*=")){
-            count++
-            line = substr(line, RSTART + RLENGTH)
-        }
-    }END{ print count + 0 }' "$file"
+get_value(){
+    template_param_scan get "$1" "$2"
 }
 
 is_valid_csv(){
@@ -52,6 +33,61 @@ is_valid_csv(){
                NF != n { ok = 0 } 
                    END { exit ok ? 0 : 1}' "$file"
     return $?
+}
+
+
+template_param_count(){
+    template_param_scan count "$1" "$2"
+}
+
+template_param_scan(){
+    local mode="$1" file="$2" param="$3" pat
+    pat="$(escape_ere "${param,,}")"
+    awk -v mode="$mode" -v pat="$pat" '
+      function strip_comment(line, out, i, c, sq, dq){
+        out = ""; sq = dq = 0
+        for(i = 1; i <= length(line); i++){
+          c = substr(line, i, 1)
+          if     (c == "'"'"'" && !dq)       { sq = !sq }
+          else if(c == "\""    && !sq)       { dq = !dq }
+          else if(c == "!"     && !sq && !dq){ break }
+          out = out c
+        } return out
+      }
+      function parse_rhs(rhs, m){
+        if(match(rhs, /^[[:space:]]*'\''([^'\'']*)'\''[[:space:]]*,?/, m)){
+          return m[1]
+        }else if(match(rhs, /^[[:space:]]*"([^"]*)"[[:space:]]*,?/, m)){
+          return m[1]
+        }else if(match(rhs, /^[[:space:]]*([^,[:space:]]+)[[:space:]]*,?/, m)){
+          return m[1]
+        }return ""
+      } {
+        line = strip_comment($0)
+        low  = tolower(line)
+        while(match(low, "(^|[^[:alnum:]_])" pat "[[:space:]]*=[[:space:]]*")){
+          start = RSTART + RLENGTH
+          rhs   = substr(line, start)
+          if(count == 0){ value = parse_rhs(rhs)}
+          count++
+          line = substr(line, start)
+          low  = substr(low,  start)
+        }
+      }END{
+        if     (mode == "count"){ print count + 0; exit 0}
+        else if(mode == "get"){ if(count == 1){print value; exit 0 } exit 1}
+        exit 2
+      }' "$file"
+}
+
+resolve_dir_path(){
+    local raw_path="$1" base_dir="$2" abs_path=
+    if [[ $raw_path == /* ]]
+    then abs_path="$raw_path"
+    else abs_path="${base_dir}/${raw_path}"
+    fi
+    [[ -d $abs_path ]] || error_exit "directory does not exist: $abs_path"
+    (cd -- "$abs_path" &>/dev/null && pwd)
 }
 
 show_help(){
@@ -169,7 +205,7 @@ then
 
     # validate headers against template file
     for param in "${headers[@]}"
-    do n_matches="$(count_template_param_matches "$template_file" "$param")"
+    do n_matches="$(template_param_count "$template_file" "$param")"
        if [[ $n_matches -eq 0 ]]
        then error_exit "template parameter not found: $param"
        elif [[ $n_matches -gt 1 ]]
@@ -178,7 +214,18 @@ then
        fi
     done
 
-    # next step: grab pseudo_dir and outdir
+    # grab pseudo_dir and outdir
+    template_dir="$(cd -- "$(dirname -- "$template_file")" &>/dev/null && pwd)"
+    pseudo_dir_raw="$(get_value "$template_file" pseudo_dir)" ||
+        error_exit 'could not uniquely extract pseudo_dir from template'
+    outdir_raw="$(get_value "$template_file" outdir)" ||
+        error_exit 'could not uniquely extract outdir from template'
+    pseudo_dir="$(resolve_dir_path "$pseudo_dir_raw" "$template_dir")"
+    outdir="$(resolve_dir_path "$outdir_raw" "$template_dir")"
+    
+    log "template_dir = $template_dir"
+    log "pseudo_dir   = $pseudo_dir"
+    log "outdir       = $outdir"
 
     # nonzero exit if anything went wrong
     exit $had_error
