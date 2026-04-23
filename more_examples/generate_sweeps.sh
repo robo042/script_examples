@@ -35,48 +35,67 @@ log(){
     echo -e "[*] $*" && return 0
 }
 
-template_param_count(){
-    template_param_scan count "$1" "$2"
-}
-
-template_param_scan(){
-    local mode="$1" file="$2" param="$3" pat
-    pat="$(escape_ere "${param,,}")"
-    awk -v mode="$mode" -v pat="$pat" '
-      function strip_comment(line, out, i, c, sq, dq){
-        out = ""; sq = dq = 0
-        for(i = 1; i <= length(line); i++){
-          c = substr(line, i, 1)
-          if     (c == "'"'"'" && !dq)       { sq = !sq }
-          else if(c == "\""    && !sq)       { dq = !dq }
-          else if(c == "!"     && !sq && !dq){ break }
-          out = out c
-        } return out
+render_template(){
+    local template_file="$1" outfile="$2" sep=$'\x1f'
+    local keys vals keys_blob vals_blob
+    keys=("${headers[@]}" pseudo_dir outdir)
+    vals=("${row_values[@]}" "'$pseudo_dir'" "'$outdir'")
+    keys_blob="$(printf "%s${sep}" "${keys[@]}")"
+    vals_blob="$(printf "%s${sep}" "${vals[@]}")"
+    keys_blob="${keys_blob%$sep}"
+    vals_blob="${vals_blob%$sep}"
+    awk -v sep="$sep" -v keys_blob="$keys_blob" -v vals_blob="$vals_blob" '
+      function ere_escape(s){
+          gsub(/[][(){}.^$*+?|\\]/, "\\\\&", s)
+          return s
       }
-      function parse_rhs(rhs, m){
-        if(match(rhs, /^[[:space:]]*'\''([^'\'']*)'\''[[:space:]]*,?/, m)){
-          return m[1]
-        }else if(match(rhs, /^[[:space:]]*"([^"]*)"[[:space:]]*,?/, m)){
-          return m[1]
-        }else if(match(rhs, /^[[:space:]]*([^,[:space:]]+)[[:space:]]*,?/, m)){
-          return m[1]
-        }return ""
-      } {
-        line = strip_comment($0)
-        low  = tolower(line)
-        while(match(low, "(^|[^[:alnum:]_])" pat "[[:space:]]*=[[:space:]]*")){
-          start = RSTART + RLENGTH
-          rhs   = substr(line, start)
-          if(count == 0){ value = parse_rhs(rhs)}
-          count++
-          line = substr(line, start)
-          low  = substr(low,  start)
-        }
-      }END{
-        if     (mode == "count"){ print count + 0; exit 0}
-        else if(mode == "get"){ if(count == 1){print value; exit 0 } exit 1}
-        exit 2
-      }' "$file"
+      function split_code_comment(line,    i, c, sq, dq){
+          code_part = ""
+          comment_part = ""
+          sq = dq = 0
+          for(i = 1; i <= length(line); i++){
+              c = substr(line, i, 1)
+              if(c == "'"'"'" && !dq){ sq = !sq}
+              else if(c == "\"" && !sq){ dq = !dq }
+              else if(c == "!" && !sq && !dq){
+                  code_part = substr(line, 1, i - 1)
+                  comment_part = substr(line, i)
+                  return
+              }
+          }
+          code_part = line
+          comment_part = ""
+      }
+      function replace_param(code, key, val, low, pat, full_start,
+                             full_len, lead_len, before, lead, rhs, after){
+          low = tolower(code)
+          pat = "(^|[^[:alnum:]_])" ere_escape(key) "[[:space:]]*=[[:space:]]*"
+          if(!match(low, pat)){ return code }
+          full_start = RSTART
+          full_len   = RLENGTH
+          lead_len   = 0
+          if(substr(low, full_start, 1) != substr(key, 1, 1)){lead_len = 1}
+          before = substr(code, 1, full_start - 1)
+          lead   = (lead_len ? substr(code, full_start, 1) : "")
+          rhs    = substr(code, full_start + full_len)
+          if(match(rhs, /^[[:space:]]*'\''[^'\'']*'\''/)){
+                 after = substr(rhs, RLENGTH + 1)
+          }else if(match(rhs, /^[[:space:]]*"[^"]*"/)){
+                 after = substr(rhs, RLENGTH + 1)
+          }else if(match(rhs, /^[[:space:]]*[^,[:space:]]+/)){
+                 after = substr(rhs, RLENGTH + 1)
+          }else{ after = rhs}
+          return before lead key " = " val after
+      }BEGIN{
+          n = split(keys_blob, keys, sep)
+          split(vals_blob, vals, sep)
+          for(i = 1; i <= n; i++){keys[i] = tolower(keys[i])}
+      }{
+          split_code_comment($0)
+          code = code_part
+          for(i = 1; i <= n; i++){code = replace_param(code, keys[i], vals[i])}
+          print code comment_part
+      }' "$template_file" > "$outfile"
 }
 
 resolve_dir_path(){
@@ -125,6 +144,7 @@ show_help(){
 
     options:
       -h, --help           show this help message and exit
+      -f, --force          overwrite existing generated sweep files
 
     examples:
       $(basename "$0") sweeps.csv Example1/scf.in
@@ -135,8 +155,53 @@ ____EOF
     return 0
 }
 
+template_param_count(){
+    template_param_scan count "$1" "$2"
+}
+
+template_param_scan(){
+    local mode="$1" file="$2" param="$3" pat
+    pat="$(escape_ere "${param,,}")"
+    awk -v mode="$mode" -v pat="$pat" '
+      function strip_comment(line, out, i, c, sq, dq){
+        out = ""; sq = dq = 0
+        for(i = 1; i <= length(line); i++){
+          c = substr(line, i, 1)
+          if     (c == "'"'"'" && !dq)       { sq = !sq }
+          else if(c == "\""    && !sq)       { dq = !dq }
+          else if(c == "!"     && !sq && !dq){ break }
+          out = out c
+        } return out
+      }
+      function parse_rhs(rhs, m){
+        if(match(rhs, /^[[:space:]]*'\''([^'\'']*)'\''[[:space:]]*,?/, m)){
+          return m[1]
+        }else if(match(rhs, /^[[:space:]]*"([^"]*)"[[:space:]]*,?/, m)){
+          return m[1]
+        }else if(match(rhs, /^[[:space:]]*([^,[:space:]]+)[[:space:]]*,?/, m)){
+          return m[1]
+        }return ""
+      } {
+        line = strip_comment($0)
+        low  = tolower(line)
+        while(match(low, "(^|[^[:alnum:]_])" pat "[[:space:]]*=[[:space:]]*")){
+          start = RSTART + RLENGTH
+          rhs   = substr(line, start)
+          if(count == 0){ value = parse_rhs(rhs)}
+          count++
+          line = substr(line, start)
+          low  = substr(low,  start)
+        }
+      }END{
+        if     (mode == "count") { print count + 0; exit 0}
+        else if(mode == "get")   { if(count == 1){print value; exit 0 } exit 1}
+        exit 2
+      }' "$file"
+}
+
 trim(){
     local s="$1"
+    s="${s//$'\r'/}"
     s="${s#"${s%%[![:space:]]*}"}"
     s="${s%"${s##*[![:space:]]}"}"
     printf '%s\n' "$s"
@@ -145,7 +210,7 @@ trim(){
 usage(){
     # abbreviated help function
     cat <<- ____EOF | sed -e 's/^    //';
-    usage: $(basename "$0") file_a file_b
+    usage: $(basename "$0") [-h] [-f] file_a file_b
 ____EOF
     return 0
 }
@@ -163,15 +228,17 @@ then
     # define our args
     args=()
     csv_file=
+    force=
     template_file=
 
     # parse our args
     while [[ $# -gt 0 ]]
     do case "$1" in
+         -f|--force) force=1 && shift ;;
           -h|--help) show_help && exit 0 ;;
                  -*) error_exit "invalid option: $1" ;;
                   *) args+=("$1") && shift ;;
-        esac
+       esac
     done
 
     # validate args
@@ -220,11 +287,57 @@ then
     outdir_raw="$(get_value "$template_file" outdir)" ||
         error_exit 'could not uniquely extract outdir from template'
     pseudo_dir="$(resolve_dir_path "$pseudo_dir_raw" "$template_dir")"
-    outdir="$(resolve_dir_path "$outdir_raw" "$template_dir")"
-    
-    log "template_dir = $template_dir"
-    log "pseudo_dir   = $pseudo_dir"
-    log "outdir       = $outdir"
+
+    # derive template stem/ext from basename; strip only rightmost dot suffix
+    template_name="$(basename -- "$template_file")"
+    if [[ $template_name == *.* ]]
+    then template_stem="${template_name%.*}"
+         template_ext=".${template_name##*.}"
+    else template_stem="$template_name"
+         template_ext=
+    fi
+    sweep_dir="${template_dir}/${template_stem}_sweeps"
+    outdir="$sweep_dir"
+
+    # # count csv data rows (exclude header)
+    csv_rows="$(awk 'END{ print NR - 1 }' "$csv_file")"
+    [[ $csv_rows -gt 0 ]] || error_exit 'csv contains no data rows.'
+
+    # create sweep directory
+    mkdir -p -- "$sweep_dir"
+
+    # compute intended output filenames and check for collisions
+    collisions=()
+    planned_files=()
+
+    for ((i = 1; i <= csv_rows; i++))
+    do printf -v idx '%03d' "$i"
+       outfile="${sweep_dir}/${template_stem}${idx}${template_ext}"
+       planned_files+=("$outfile")
+       [[ -e $outfile ]] && collisions+=("$outfile")
+    done
+
+    if [[ ${#collisions[@]} -gt 0 && -z ${force:-} ]]
+    then for file in "${collisions[@]}"
+         do error "$(realpath --relative-to=. "$file") already exists"
+         done
+         error_exit 'refusing to overwrite existing sweep files'
+    fi
+
+    row_num=0
+    while IFS=',' read -r -a row_values
+    do ((++row_num))
+       for i in "${!row_values[@]}"
+       do row_values[$i]="$(trim "${row_values[$i]}")"
+       done
+       if ! [[ ${#row_values[@]} -eq ${#headers[@]} ]]
+       then error_exit "csv row $row_num has wrong number of fields"
+       fi 
+       printf -v idx '%03d' "$row_num"
+       outfile="${sweep_dir}/${template_stem}${idx}${template_ext}"
+       render_template "$template_file" "$outfile"
+       log "wrote $(realpath --relative-to=. "$outfile")"
+    done < <(tail -n +2 "$csv_file")
 
     # nonzero exit if anything went wrong
     exit $had_error
