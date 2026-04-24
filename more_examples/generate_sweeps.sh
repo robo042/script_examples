@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Generate a directory of QE input files from one template and one csv.
+# The csv header names template parameters to replace; each data row produces
+# one numbered output file in a *_sweeps directory beside the template.
+
 error(){
     # writes to stderr
     echo -e "[!] $*" >&2 && return
@@ -12,22 +16,24 @@ error_exit(){
 }
 
 escape_ere(){
-    printf '%s\n' "$1" | sed 's/[][(){}.^$*+?|\\/]/\\\\&/g'
+    # escapes a string so it can be safely used in an extended regex
+    printf '%s\n' "$1" | sed 's/[][(){}.^$*+?|\\/]/\\\\&/g' && return
 }
 
 get_value(){
-    template_param_scan get "$1" "$2"
+    # returns the uniquely matched value of a QE parameter from a template
+    template_param_scan get "$1" "$2" && return
 }
 
 is_valid_csv(){
+    # or nah?
     local file="$1"
     [[ -f $file && -r $file ]] || return 1
     awk -F ','  'BEGIN { ok = 1 }
       /^[[:space:]]*$/ { ok = 0; next }
                NR == 1 { n = NF; if (n < 1) ok = 0 }
                NF != n { ok = 0 } 
-                   END { exit ok ? 0 : 1}' "$file"
-    return
+                   END { exit ok ? 0 : 1}' "$file" && return
 }
 
 log(){
@@ -36,19 +42,20 @@ log(){
 }
 
 render_template(){
+    # renders one output file by replacing CSV-selected parameters plus
+    # PSEUDO_DIR, OUTDIR, & ROW_VALUES while preserving trailing comments
     local template_file="$1" outfile="$2" sep=$'\x1f' keys_pat=()
     local keys vals keys_blob vals_blob kpat_blob
-    keys=("${headers[@]}" pseudo_dir outdir)
-    vals=("${row_values[@]}" "'$pseudo_dir'" "'$outdir'")
+    # mind the globals (all caps)
+    keys=("${HEADERS[@]}" pseudo_dir outdir)
+    vals=("${ROW_VALUES[@]}" "'$PSEUDO_DIR'" "'$OUTDIR'")
     for k in "${keys[@]}"; do keys_pat+=("$(escape_ere "${k,,}")"); done
     keys_blob="$(printf "%s${sep}" "${keys[@]}")"
     vals_blob="$(printf "%s${sep}" "${vals[@]}")"
     kpat_blob="$(printf "%s${sep}" "${keys_pat[@]}")"
-    keys_blob="${keys_blob%$sep}"
-    vals_blob="${vals_blob%$sep}"
-    kpat_blob="${kpat_blob%$sep}"
-    awk -v sep="$sep" -v keys_blob="$keys_blob" \
-        -v vals_blob="$vals_blob" -v kpat_blob="$kpat_blob" '
+    awk -v sep="$sep" -v keys_blob="${keys_blob%$sep}" \
+                      -v vals_blob="${vals_blob%$sep}" \
+                      -v kpat_blob="${kpat_blob%$sep}" '
       function split_code_comment(line,    i, c, sq, dq){
           code_part = ""
           comment_part = ""
@@ -98,19 +105,19 @@ render_template(){
               code = replace_param(code, keys[i], vals[i], kpats[i])
           }
           print code comment_part
-      }' "$template_file" > "$outfile"
-      return
+      }' "$template_file" > "$outfile" && return
 }
 
 resolve_dir_path(){
+    # resolves a raw QE directory value against the template dir and returns
+    # a normalized absolute path; errors if the directory does not exist
     local raw_path="$1" base_dir="$2" abs_path=
     if [[ $raw_path == /* ]]
     then abs_path="$raw_path"
     else abs_path="${base_dir}/${raw_path}"
     fi
     [[ -d $abs_path ]] || error_exit "directory does not exist: $abs_path"
-    (cd -- "$abs_path" &>/dev/null && pwd)
-    return
+    (cd -- "$abs_path" &>/dev/null && pwd) && return
 }
 
 show_help(){
@@ -160,14 +167,15 @@ ____EOF
 }
 
 template_param_count(){
-    template_param_scan count "$1" "$2"
-    return
+    # counts how many times a given QE parameter appears in the template
+    template_param_scan count "$1" "$2" && return
 }
 
 template_param_scan(){
-    local mode="$1" file="$2" param="$3" pat
-    pat="$(escape_ere "${param,,}")"
-    awk -v mode="$mode" -v pat="$pat" '
+    # scans a QE template for a parameter assignment; either counts matches
+    # or returns the uniquely matched value, ignoring comments
+    local mode="$1" file="$2" param="$3"
+    awk -v mode="$mode" -v pat="$(escape_ere "${param,,}")" '
       function strip_comment(line, out, i, c, sq, dq){
         out = ""; sq = dq = 0
         for(i = 1; i <= length(line); i++){
@@ -201,16 +209,14 @@ template_param_scan(){
         if     (mode == "count") { print count + 0; exit 0}
         else if(mode == "get")   { if(count == 1){print value; exit 0 } exit 1}
         exit 2
-      }' "$file"
-    return
+      }' "$file" && return
 }
 
 trim(){
-    local s="$1"
-    s="${s//$'\r'/}"
+    # strips leading/trailing whitespace and removes carriage returns
+    local s="${1//$'\r'/}"
     s="${s#"${s%%[![:space:]]*}"}"
-    printf '%s\n' "${s%"${s##*[![:space:]]}"}"
-    return
+    printf '%s\n' "${s%"${s##*[![:space:]]}"}" && return
 }
 
 usage(){
@@ -222,12 +228,13 @@ ____EOF
     return
 }
 
+# MAIN ########################################################################
 if [[ ${BASH_SOURCE[0]} == $0 ]]
 then
 
-    # -e  aborts on command failure
-    # -u  aborts on undefined variables
-    # -o pipefail ensures we're not silently failing in pipelines
+    #   -e            aborts on command failure
+    #    -u           aborts on undefined variables
+    #     -o pipefail ensures we're not silently failing in pipelines
     set -euo pipefail
 
     # define our args
@@ -254,6 +261,7 @@ then
             'one csv file and one QE template file.'
     fi
 
+    # identify which positional file is the csv and which is the QE template
     for arg in "${args[@]}"
     do [[ -f $arg && -r $arg ]] || error_exit "can't read $arg"
        if is_valid_csv "$arg"
@@ -271,11 +279,13 @@ then
     done
 
     # grab headers
-    IFS=',' read -r -a headers < "$csv_file"
-    for i in "${!headers[@]}";do headers[$i]="$(trim "${headers[$i],,}")";done
+    IFS=',' read -r -a HEADERS < "$csv_file"
+    for i in "${!HEADERS[@]}"
+    do HEADERS[$i]="$(trim "${HEADERS[$i],,}")"
+    done
 
     # validate headers against template file
-    for param in "${headers[@]}"
+    for param in "${HEADERS[@]}"
     do n_matches="$(template_param_count "$template_file" "$param")"
        if [[ $n_matches -eq 0 ]]
        then error_exit "template parameter not found: $param"
@@ -285,13 +295,14 @@ then
        fi
     done
 
-    # grab pseudo_dir and outdir
+    # resolve template-relative directories and establish global path vars
+    # (global vars in all caps)
     template_dir="$(cd -- "$(dirname -- "$template_file")" &>/dev/null && pwd)"
     pseudo_dir_raw="$(get_value "$template_file" pseudo_dir)" ||
         error_exit 'could not uniquely extract pseudo_dir from template'
     outdir_raw="$(get_value "$template_file" outdir)" ||
         error_exit 'could not uniquely extract outdir from template'
-    pseudo_dir="$(resolve_dir_path "$pseudo_dir_raw" "$template_dir")"
+    PSEUDO_DIR="$(resolve_dir_path "$pseudo_dir_raw" "$template_dir")"
 
     # derive template stem/ext from basename; strip only rightmost dot suffix
     template_name="$(basename -- "$template_file")"
@@ -302,11 +313,17 @@ then
          template_ext=
     fi
     sweep_dir="${template_dir}/${template_stem}_sweeps"
-    outdir="$sweep_dir"
+    OUTDIR="$sweep_dir"
 
-    # # count csv data rows (exclude header)
+    # count csv data rows (exclude header)
     csv_rows="$(awk 'END{ print NR - 1 }' "$csv_file")"
-    [[ $csv_rows -gt 0 ]] || error_exit 'csv contains no data rows.'
+    if [[ ! $csv_rows -gt 0 ]]
+    then error_exit 'csv contains no data rows.'
+    elif [[ ! $csv_rows -le 999 ]]; then
+        error 'csv contains more than 999 data rows.'
+        error 'this script is intentionally limited to 999 sweeps'
+        error_exit 'use a proper templating workflow for larger jobs.'
+    fi
 
     # create sweep directory
     mkdir -p -- "$sweep_dir"
@@ -314,14 +331,12 @@ then
     # compute intended output filenames and check for collisions
     collisions=()
     planned_files=()
-
     for ((i = 1; i <= csv_rows; i++))
     do printf -v idx '%03d' "$i"
        outfile="${sweep_dir}/${template_stem}${idx}${template_ext}"
        planned_files+=("$outfile")
        [[ -e $outfile ]] && collisions+=("$outfile")
     done
-
     if [[ ${#collisions[@]} -gt 0 && -z ${force:-} ]]
     then for file in "${collisions[@]}"
          do error "$(realpath --relative-to=. "$file") already exists"
@@ -329,13 +344,14 @@ then
          error_exit 'refusing to overwrite existing sweep files'
     fi
 
+    # render one sweep file per csv data row
     row_num=0
-    while IFS=',' read -r -a row_values
+    while IFS=',' read -r -a ROW_VALUES
     do ((++row_num))
-       for i in "${!row_values[@]}"
-       do row_values[$i]="$(trim "${row_values[$i]}")"
+       for i in "${!ROW_VALUES[@]}"
+       do ROW_VALUES[$i]="$(trim "${ROW_VALUES[$i]}")"
        done
-       if ! [[ ${#row_values[@]} -eq ${#headers[@]} ]]
+       if ! [[ ${#ROW_VALUES[@]} -eq ${#HEADERS[@]} ]]
        then error_exit "csv row $row_num has wrong number of fields"
        fi 
        printf -v idx '%03d' "$row_num"
