@@ -30,10 +30,11 @@ is_valid_csv(){
     local file="$1"
     [[ -f $file && -r $file ]] || return 1
     awk -F ','  'BEGIN { ok = 1 }
-      /^[[:space:]]*$/ { ok = 0; next }
-               NR == 1 { n = NF; if (n < 1) ok = 0 }
-               NF != n { ok = 0 } 
-                   END { exit ok ? 0 : 1}' "$file" && return
+      /^[[:space:]]*$/ { next }
+                    !n { n = NF }
+    NF != n || NF == 0 { ok = 0; exit }
+                   END { exit ok ? 0 : 1 }' "$file"
+    return
 }
 
 log(){
