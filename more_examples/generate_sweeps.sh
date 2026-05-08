@@ -25,6 +25,16 @@ get_value(){
     template_param_scan get "$1" "$2" && return
 }
 
+is_kpoints_header(){
+    # or nah?
+    local h="${1,,}"
+    h="${h//[[:space:]]/_}"
+    case "${h//-/_}" in
+        kpoints|k_points|k_points_automatic) return 0 ;;
+                                          *) return 1 ;;
+    esac
+}
+
 is_valid_csv(){
     # or nah?
     local file="$1"
@@ -46,17 +56,23 @@ render_template(){
     # renders one output file by replacing CSV-selected parameters plus
     # PSEUDO_DIR, OUTDIR, & ROW_VALUES while preserving trailing comments
     local template_file="$1" outfile="$2" sep=$'\x1f' keys_pat=()
-    local keys vals keys_blob vals_blob kpat_blob
+    local keys=() vals=() keys_blob vals_blob kpat_blob
     # mind the globals (all caps)
-    keys=("${HEADERS[@]}" pseudo_dir outdir)
-    vals=("${ROW_VALUES[@]}" "'$PSEUDO_DIR'" "'$OUTDIR'")
+    for i in "${!HEADERS[@]}"
+    do if ! is_kpoints_header "${HEADERS[$i]}"
+       then keys+=("${HEADERS[$i]}")
+            vals+=("${ROW_VALUES[$i]}")
+       fi
+    done
+    keys+=(pseudo_dir outdir) vals+=("'$PSEUDO_DIR'" "'$OUTDIR'")
     for k in "${keys[@]}"; do keys_pat+=("$(escape_ere "${k,,}")"); done
     keys_blob="$(printf "%s${sep}" "${keys[@]}")"
     vals_blob="$(printf "%s${sep}" "${vals[@]}")"
     kpat_blob="$(printf "%s${sep}" "${keys_pat[@]}")"
     awk -v sep="$sep" -v keys_blob="${keys_blob%$sep}" \
-                      -v vals_blob="${vals_blob%$sep}" \
-                      -v kpat_blob="${kpat_blob%$sep}" '
+                  -v vals_blob="${vals_blob%$sep}" \
+                  -v kpat_blob="${kpat_blob%$sep}" \
+                  -v kpoints_line="${KPOINTS_LINE:-}" '
       function split_code_comment(line,    i, c, sq, dq){
           code_part = ""
           comment_part = ""
@@ -104,6 +120,17 @@ render_template(){
           code = code_part
           for(i = 1; i <= n; i++){
               code = replace_param(code, keys[i], vals[i], kpats[i])
+          }
+          ktest = tolower(code)
+          gsub(/[{}]/, " ", ktest)
+          gsub(/[[:space:]]+/, " ", ktest)
+          gsub(/^ /, "", ktest)
+          gsub(/ $/, "", ktest)
+          if(kpoints_line != "" && ktest == "k_points automatic"){
+              print code comment_part
+              getline
+              print kpoints_line
+              next
           }
           print code comment_part
       }' "$template_file" > "$outfile" && return
@@ -287,7 +314,10 @@ then
 
     # validate headers against template file
     for param in "${HEADERS[@]}"
-    do n_matches="$(template_param_count "$template_file" "$param")"
+    do if is_kpoints_header "$param" 
+       then continue
+       fi    
+       n_matches="$(template_param_count "$template_file" "$param")"
        if [[ $n_matches -eq 0 ]]
        then error_exit "template parameter not found: $param"
        elif [[ $n_matches -gt 1 ]]
@@ -346,7 +376,7 @@ then
     fi
 
     # render one sweep file per csv data row
-    row_num=0
+    row_num=0 KPOINTS_LINE=
     while IFS=',' read -r -a ROW_VALUES
     do ((++row_num))
        for i in "${!ROW_VALUES[@]}"
@@ -355,6 +385,11 @@ then
        if ! [[ ${#ROW_VALUES[@]} -eq ${#HEADERS[@]} ]]
        then error_exit "csv row $row_num has wrong number of fields"
        fi 
+       for i in "${!HEADERS[@]}"
+       do if is_kpoints_header "${HEADERS[$i]}"
+          then KPOINTS_LINE="${ROW_VALUES[$i]}"
+          fi
+       done
        printf -v idx '%03d' "$row_num"
        outfile="${sweep_dir}/${template_stem}${idx}${template_ext}"
        render_template "$template_file" "$outfile"
